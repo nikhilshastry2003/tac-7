@@ -2,19 +2,20 @@
 # /// script
 # requires-python = ">=3.8"
 # dependencies = [
-#     "anthropic",
 #     "python-dotenv",
 # ]
 # ///
 
 import os
 import sys
+import subprocess
+import shutil
 from dotenv import load_dotenv
 
 
 def prompt_llm(prompt_text):
     """
-    Base Anthropic LLM prompting method using fastest model.
+    Base Claude Code subscription prompting method using CLI.
 
     Args:
         prompt_text (str): The prompt to send to the model
@@ -24,31 +25,36 @@ def prompt_llm(prompt_text):
     """
     load_dotenv()
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
+    # Get claude path from environment or use default
+    claude_path = os.getenv("CLAUDE_CODE_PATH", "claude")
+
+    # Check if claude CLI is available
+    if not shutil.which(claude_path):
         return None
 
     try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=api_key)
-
-        message = client.messages.create(
-            model="claude-3-5-haiku-20241022",  # Fastest Anthropic model
-            max_tokens=100,
-            temperature=0.7,
-            messages=[{"role": "user", "content": prompt_text}],
+        # Call Claude Code CLI in print mode
+        result = subprocess.run(
+            [claude_path, "-p", prompt_text, "--output-format", "text"],
+            capture_output=True,
+            text=True,
+            timeout=60
         )
 
-        return message.content[0].text.strip()
+        if result.returncode != 0:
+            return None
 
+        return result.stdout.strip()
+
+    except subprocess.TimeoutExpired:
+        return None
     except Exception:
         return None
 
 
 def generate_completion_message():
     """
-    Generate a completion message using Anthropic LLM.
+    Generate a completion message using Claude Code subscription.
 
     Returns:
         str: A natural language completion message, or None if error
@@ -105,7 +111,7 @@ def main():
             if response:
                 print(response)
             else:
-                print("Error calling Anthropic API")
+                print("Error calling Claude Code CLI")
     else:
         print("Usage: ./anth.py 'your prompt here' or ./anth.py --completion")
 

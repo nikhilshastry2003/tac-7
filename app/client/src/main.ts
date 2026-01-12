@@ -46,7 +46,7 @@ function initializeQueryInput() {
     try {
       const response = await api.processQuery({
         query,
-        llm_provider: 'openai'  // Default to OpenAI
+        llm_provider: 'gemini'  // Default to Gemini
       });
       
       displayResults(response, query);

@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.8"
 # dependencies = [
-#     "openai",
+#     "google-generativeai",
 #     "python-dotenv",
 # ]
 # ///
@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 def prompt_llm(prompt_text):
     """
-    Base OpenAI LLM prompting method using fastest model.
+    Base Gemini LLM prompting method using fastest model.
 
     Args:
         prompt_text (str): The prompt to send to the model
@@ -24,23 +24,25 @@ def prompt_llm(prompt_text):
     """
     load_dotenv()
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return None
 
     try:
-        from openai import OpenAI
+        import google.generativeai as genai
 
-        client = OpenAI(api_key=api_key)
+        genai.configure(api_key=api_key)
 
-        response = client.chat.completions.create(
-            model="gpt-4.1-nano",  # Fastest OpenAI model
-            messages=[{"role": "user", "content": prompt_text}],
-            max_tokens=100,
-            temperature=0.7,
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(
+            prompt_text,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=100,
+                temperature=0.7,
+            ),
         )
 
-        return response.choices[0].message.content.strip()
+        return response.text.strip()
 
     except Exception:
         return None
@@ -48,7 +50,7 @@ def prompt_llm(prompt_text):
 
 def generate_completion_message():
     """
-    Generate a completion message using OpenAI LLM.
+    Generate a completion message using Gemini LLM.
 
     Returns:
         str: A natural language completion message, or None if error
@@ -105,7 +107,7 @@ def main():
             if response:
                 print(response)
             else:
-                print("Error calling OpenAI API")
+                print("Error calling Gemini API")
     else:
         print("Usage: ./oai.py 'your prompt here' or ./oai.py --completion")
 
