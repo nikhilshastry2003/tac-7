@@ -543,3 +543,53 @@ h2 {
 .divider::after {
   right: 0;
 }
+
+/* Global Drop Zone Styles */
+.droppable-section {
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(102, 126, 234, 0.9);
+  border-radius: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.drop-overlay-content {
+  text-align: center;
+  color: white;
+}
+
+.drop-overlay-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.drop-overlay-text {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.droppable-section.drag-active .drop-overlay {
+  display: flex;
+}
+
+.droppable-section.drag-active {
+  border: 2px dashed var(--primary-color);
+}
+
+/* Ensure proper z-index for overlay */
+body.global-drag-active .query-section,
+body.global-drag-active .tables-section {
+  border: 2px dashed transparent;
+}

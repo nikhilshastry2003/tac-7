@@ -7,6 +7,7 @@ import { api } from './api/client'
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
   initializeFileUpload();
+  initializeGlobalDropZones();
   initializeModal();
   initializeRandomQueryButton();
   loadDatabaseSchema();
@@ -149,11 +150,75 @@ function initializeFileUpload() {
   dropZone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    
+
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
       handleFileUpload(files[0]);
     }
+  });
+}
+
+// Global Drop Zones - Allow drag and drop on query and tables sections
+function initializeGlobalDropZones() {
+  const querySection = document.getElementById('query-section') as HTMLElement;
+  const tablesSection = document.getElementById('tables-section') as HTMLElement;
+  const droppableSections = [querySection, tablesSection];
+
+  // Track drag state to handle dragenter/dragleave across child elements
+  let dragCounter = 0;
+
+  // Setup each droppable section
+  droppableSections.forEach(section => {
+    section.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      section.classList.add('drag-active');
+      document.body.classList.add('global-drag-active');
+    });
+
+    section.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) {
+        section.classList.remove('drag-active');
+        document.body.classList.remove('global-drag-active');
+      }
+    });
+
+    section.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    section.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      section.classList.remove('drag-active');
+      document.body.classList.remove('global-drag-active');
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        // Check if it's a valid file type
+        const file = files[0];
+        const validExtensions = ['.csv', '.json', '.jsonl'];
+        const fileName = file.name.toLowerCase();
+        const isValidFile = validExtensions.some(ext => fileName.endsWith(ext));
+
+        if (isValidFile) {
+          handleFileUpload(file);
+        } else {
+          displayError('Please drop a .csv, .json, or .jsonl file');
+        }
+      }
+    });
+  });
+
+  // Handle dragend to cleanup state when drag is cancelled
+  document.addEventListener('dragend', () => {
+    dragCounter = 0;
+    droppableSections.forEach(section => {
+      section.classList.remove('drag-active');
+    });
+    document.body.classList.remove('global-drag-active');
   });
 }
 

@@ -12,9 +12,15 @@
         <h1>Natural Language SQL Interface</h1>
         
         <!-- Query Input Section -->
-        <section id="query-section" class="query-section">
-          <textarea 
-            id="query-input" 
+        <section id="query-section" class="query-section droppable-section">
+          <div class="drop-overlay">
+            <div class="drop-overlay-content">
+              <div class="drop-overlay-icon">📁</div>
+              <div class="drop-overlay-text">Drop to create the table</div>
+            </div>
+          </div>
+          <textarea
+            id="query-input"
             placeholder="Ask a question about your data... (e.g., 'Show me users who signed up last week')"
             rows="4"
             autofocus
@@ -39,7 +45,13 @@
         </section>
 
         <!-- Current Tables Section -->
-        <section id="tables-section" class="tables-section">
+        <section id="tables-section" class="tables-section droppable-section">
+          <div class="drop-overlay">
+            <div class="drop-overlay-content">
+              <div class="drop-overlay-icon">📁</div>
+              <div class="drop-overlay-text">Drop to create the table</div>
+            </div>
+          </div>
           <h3>Available Tables</h3>
           <div id="tables-list" class="tables-list">
             <p class="no-tables">No tables loaded. Upload data or use sample data to get started.</p>
