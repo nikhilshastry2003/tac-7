@@ -61,3 +61,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When working with upload button text or labeling
     - When implementing UI text changes for data upload functionality
     - When troubleshooting upload button display or terminology
+
+- app_docs/feature-79447884-expanded-drag-drop-zone.md
+  - Conditions:
+    - When working with drag-and-drop file upload functionality
+    - When implementing or modifying drop zones on the query section or tables section
+    - When troubleshooting drag event handlers or visual overlays
+    - When adding drag-and-drop to new page sections
+    - When working with dragenter, dragleave, dragover, or drop events
