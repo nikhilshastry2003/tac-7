@@ -12,9 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDatabaseSchema();
 });
 
-// Helper function to get download icon
-function getDownloadIcon(): string {
+// Helper functions for download icons
+function getCsvIcon(): string {
   return '📊 CSV';
+}
+
+function getJsonIcon(): string {
+  return '{ } JSON';
+}
+
+// Legacy function for backwards compatibility
+function getDownloadIcon(): string {
+  return getCsvIcon();
 }
 
 // Query Input Functionality
@@ -235,25 +244,39 @@ function displayResults(response: QueryResponse, query: string) {
     // Create button container
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'results-header-buttons';
-    
-    // Create export button
-    const exportButton = document.createElement('button');
-    exportButton.className = 'export-button secondary-button';
-    exportButton.innerHTML = `${getDownloadIcon()} Export`;
-    exportButton.title = 'Export results as CSV';
-    exportButton.onclick = async () => {
+
+    // Create CSV export button
+    const csvExportButton = document.createElement('button');
+    csvExportButton.className = 'export-button secondary-button';
+    csvExportButton.innerHTML = getCsvIcon();
+    csvExportButton.title = 'Export results as CSV';
+    csvExportButton.onclick = async () => {
       try {
         await api.exportQueryResults(response.results, response.columns);
       } catch (error) {
-        displayError('Failed to export results');
+        displayError('Failed to export results as CSV');
       }
     };
-    
+
+    // Create JSON export button
+    const jsonExportButton = document.createElement('button');
+    jsonExportButton.className = 'export-button secondary-button';
+    jsonExportButton.innerHTML = getJsonIcon();
+    jsonExportButton.title = 'Export results as JSON';
+    jsonExportButton.onclick = async () => {
+      try {
+        await api.exportQueryResultsAsJson(response.results, response.columns);
+      } catch (error) {
+        displayError('Failed to export results as JSON');
+      }
+    };
+
     // Remove toggle button from its current position
     toggleButton.remove();
-    
+
     // Add buttons to container
-    buttonContainer.appendChild(exportButton);
+    buttonContainer.appendChild(csvExportButton);
+    buttonContainer.appendChild(jsonExportButton);
     buttonContainer.appendChild(toggleButton);
     
     // Add container to results header
@@ -333,27 +356,41 @@ function displayTables(tables: TableSchema[]) {
     buttonsContainer.style.display = 'flex';
     buttonsContainer.style.gap = '0.5rem';
     buttonsContainer.style.alignItems = 'center';
-    
-    // Create export button
-    const exportButton = document.createElement('button');
-    exportButton.className = 'export-button table-export-button';
-    exportButton.innerHTML = getDownloadIcon();
-    exportButton.title = 'Export table as CSV';
-    exportButton.onclick = async () => {
+
+    // Create CSV export button
+    const csvExportButton = document.createElement('button');
+    csvExportButton.className = 'export-button table-export-button';
+    csvExportButton.innerHTML = getCsvIcon();
+    csvExportButton.title = 'Export table as CSV';
+    csvExportButton.onclick = async () => {
       try {
         await api.exportTable(table.name);
       } catch (error) {
-        displayError('Failed to export table');
+        displayError('Failed to export table as CSV');
       }
     };
-    
+
+    // Create JSON export button
+    const jsonExportButton = document.createElement('button');
+    jsonExportButton.className = 'export-button table-export-button';
+    jsonExportButton.innerHTML = getJsonIcon();
+    jsonExportButton.title = 'Export table as JSON';
+    jsonExportButton.onclick = async () => {
+      try {
+        await api.exportTableAsJson(table.name);
+      } catch (error) {
+        displayError('Failed to export table as JSON');
+      }
+    };
+
     const removeButton = document.createElement('button');
     removeButton.className = 'remove-table-button';
     removeButton.innerHTML = '&times;';
     removeButton.title = 'Remove table';
     removeButton.onclick = () => removeTable(table.name);
-    
-    buttonsContainer.appendChild(exportButton);
+
+    buttonsContainer.appendChild(csvExportButton);
+    buttonsContainer.appendChild(jsonExportButton);
     buttonsContainer.appendChild(removeButton);
     
     tableHeader.appendChild(tableLeft);
