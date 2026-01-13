@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeFileUpload();
   initializeModal();
   initializeRandomQueryButton();
+  initializeExpandedDropZones();
   loadDatabaseSchema();
 });
 
@@ -161,7 +162,7 @@ function initializeFileUpload() {
 async function handleFileUpload(file: File) {
   try {
     const response = await api.uploadFile(file);
-    
+
     if (response.error) {
       displayError(response.error);
     } else {
@@ -170,6 +171,91 @@ async function handleFileUpload(file: File) {
     }
   } catch (error) {
     displayError(error instanceof Error ? error.message : 'Upload failed');
+  }
+}
+
+// Initialize expanded drop zones for query section and tables section
+function initializeExpandedDropZones() {
+  const querySection = document.getElementById('query-section') as HTMLElement;
+  const tablesSection = document.getElementById('tables-section') as HTMLElement;
+
+  // Track drag counters for proper enter/leave handling
+  let queryDragCounter = 0;
+  let tablesDragCounter = 0;
+
+  // Helper function to check if drag contains files
+  const hasFiles = (e: DragEvent): boolean => {
+    return e.dataTransfer?.types.includes('Files') || false;
+  };
+
+  // Setup drop zone for query section
+  if (querySection) {
+    querySection.addEventListener('dragenter', (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      queryDragCounter++;
+      if (queryDragCounter === 1) {
+        querySection.classList.add('drag-zone-active');
+      }
+    });
+
+    querySection.addEventListener('dragover', (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    });
+
+    querySection.addEventListener('dragleave', () => {
+      queryDragCounter--;
+      if (queryDragCounter === 0) {
+        querySection.classList.remove('drag-zone-active');
+      }
+    });
+
+    querySection.addEventListener('drop', async (e: DragEvent) => {
+      e.preventDefault();
+      queryDragCounter = 0;
+      querySection.classList.remove('drag-zone-active');
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        await handleFileUpload(files[0]);
+      }
+    });
+  }
+
+  // Setup drop zone for tables section
+  if (tablesSection) {
+    tablesSection.addEventListener('dragenter', (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      tablesDragCounter++;
+      if (tablesDragCounter === 1) {
+        tablesSection.classList.add('drag-zone-active');
+      }
+    });
+
+    tablesSection.addEventListener('dragover', (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    });
+
+    tablesSection.addEventListener('dragleave', () => {
+      tablesDragCounter--;
+      if (tablesDragCounter === 0) {
+        tablesSection.classList.remove('drag-zone-active');
+      }
+    });
+
+    tablesSection.addEventListener('drop', async (e: DragEvent) => {
+      e.preventDefault();
+      tablesDragCounter = 0;
+      tablesSection.classList.remove('drag-zone-active');
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        await handleFileUpload(files[0]);
+      }
+    });
   }
 }
 
