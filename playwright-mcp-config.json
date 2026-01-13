@@ -6,7 +6,7 @@
     },
     "contextOptions": {
       "recordVideo": {
-        "dir": "./videos",
+        "dir": "/c/Users/NAVEEN/Desktop/Intern_kit/.repo/TAC/tac-7/trees/0390a27b/videos",
         "size": {
           "width": 1920,
           "height": 1080
