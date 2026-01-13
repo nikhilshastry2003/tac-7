@@ -1,8 +1,9 @@
 import pytest
 import sqlite3
 import pandas as pd
+import json
 from io import StringIO
-from core.export_utils import generate_csv_from_data, generate_csv_from_table
+from core.export_utils import generate_csv_from_data, generate_csv_from_table, generate_json_from_data, generate_json_from_table
 
 
 class TestExportUtils:
@@ -214,5 +215,194 @@ class TestExportUtils:
         
         assert len(df) == 1
         assert df.iloc[0]['data'] == 'test data'
-        
+
+        conn.close()
+
+
+class TestJsonExportUtils:
+
+    def test_generate_json_from_data_empty(self):
+        """Test JSON generation with empty data"""
+        result = generate_json_from_data([], [])
+        assert result == b"[]"
+
+        # Verify it's valid JSON
+        json_data = json.loads(result.decode('utf-8'))
+        assert json_data == []
+
+    def test_generate_json_from_data_with_columns_no_data(self):
+        """Test JSON generation with columns but no data"""
+        columns = ['id', 'name', 'value']
+        result = generate_json_from_data([], columns)
+
+        # Verify it's valid JSON
+        json_data = json.loads(result.decode('utf-8'))
+        assert json_data == []
+
+    def test_generate_json_from_data_with_data(self):
+        """Test JSON generation with actual data"""
+        data = [
+            {'id': 1, 'name': 'Test 1', 'value': 100},
+            {'id': 2, 'name': 'Test 2', 'value': 200}
+        ]
+        columns = ['id', 'name', 'value']
+
+        result = generate_json_from_data(data, columns)
+
+        # Parse and verify JSON
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert len(json_data) == 2
+        assert json_data[0]['id'] == 1
+        assert json_data[0]['name'] == 'Test 1'
+        assert json_data[0]['value'] == 100
+        assert json_data[1]['id'] == 2
+        assert json_data[1]['value'] == 200
+
+    def test_generate_json_from_data_various_types(self):
+        """Test JSON generation with various data types"""
+        data = [
+            {'int': 1, 'float': 1.5, 'string': 'test', 'bool': True, 'none': None},
+            {'int': 2, 'float': 2.5, 'string': 'test2', 'bool': False, 'none': None}
+        ]
+        columns = ['int', 'float', 'string', 'bool', 'none']
+
+        result = generate_json_from_data(data, columns)
+
+        # Parse and verify JSON
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert json_data[0]['int'] == 1
+        assert json_data[0]['float'] == 1.5
+        assert json_data[0]['string'] == 'test'
+        assert json_data[0]['bool'] is True
+        assert json_data[0]['none'] is None
+        assert json_data[1]['bool'] is False
+
+    def test_generate_json_from_data_special_characters(self):
+        """Test JSON generation with special characters"""
+        data = [
+            {'name': 'Test, with comma', 'desc': 'Quote "test"'},
+            {'name': 'New\nline', 'desc': 'Tab\there'}
+        ]
+        columns = ['name', 'desc']
+
+        result = generate_json_from_data(data, columns)
+
+        # Parse and verify JSON (JSON handles escaping automatically)
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert json_data[0]['name'] == 'Test, with comma'
+        assert json_data[0]['desc'] == 'Quote "test"'
+        assert json_data[1]['name'] == 'New\nline'
+        assert json_data[1]['desc'] == 'Tab\there'
+
+    def test_generate_json_from_data_unicode(self):
+        """Test JSON generation with Unicode and emoji characters"""
+        data = [
+            {'name': 'Test 测试', 'emoji': '😀🎉'},
+            {'name': 'Café', 'emoji': '☕'}
+        ]
+        columns = ['name', 'emoji']
+
+        result = generate_json_from_data(data, columns)
+
+        # Parse and verify JSON with Unicode
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert json_data[0]['name'] == 'Test 测试'
+        assert json_data[0]['emoji'] == '😀🎉'
+        assert json_data[1]['name'] == 'Café'
+        assert json_data[1]['emoji'] == '☕'
+
+    def test_generate_json_from_table_nonexistent(self):
+        """Test JSON generation from non-existent table"""
+        conn = sqlite3.connect(':memory:')
+
+        with pytest.raises(ValueError, match="Table 'nonexistent' does not exist"):
+            generate_json_from_table(conn, 'nonexistent')
+
+        conn.close()
+
+    def test_generate_json_from_table_empty(self):
+        """Test JSON generation from empty table"""
+        conn = sqlite3.connect(':memory:')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE test_table (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                value REAL
+            )
+        ''')
+        conn.commit()
+
+        result = generate_json_from_table(conn, 'test_table')
+
+        # Parse and verify JSON
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert json_data == []
+
+        conn.close()
+
+    def test_generate_json_from_table_with_data(self):
+        """Test JSON generation from table with data"""
+        conn = sqlite3.connect(':memory:')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE test_table (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                value REAL,
+                created_date TEXT
+            )
+        ''')
+
+        cursor.executemany('''
+            INSERT INTO test_table (name, value, created_date)
+            VALUES (?, ?, ?)
+        ''', [
+            ('Item 1', 100.5, '2024-01-01'),
+            ('Item 2', 200.75, '2024-01-02'),
+            ('Item 3', None, '2024-01-03')
+        ])
+        conn.commit()
+
+        result = generate_json_from_table(conn, 'test_table')
+
+        # Parse and verify JSON
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert len(json_data) == 3
+        assert json_data[0]['name'] == 'Item 1'
+        assert json_data[0]['value'] == 100.5
+        assert json_data[1]['value'] == 200.75
+        assert json_data[2]['value'] is None
+        assert json_data[2]['created_date'] == '2024-01-03'
+
+        conn.close()
+
+    def test_generate_json_from_table_special_name(self):
+        """Test JSON generation from table with special characters in name"""
+        conn = sqlite3.connect(':memory:')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE "special-table-name" (
+                id INTEGER PRIMARY KEY,
+                data TEXT
+            )
+        ''')
+
+        cursor.execute('INSERT INTO "special-table-name" (data) VALUES (?)', ('test data',))
+        conn.commit()
+
+        result = generate_json_from_table(conn, 'special-table-name')
+
+        # Parse and verify JSON
+        json_data = json.loads(result.decode('utf-8'))
+
+        assert len(json_data) == 1
+        assert json_data[0]['data'] == 'test data'
+
         conn.close()

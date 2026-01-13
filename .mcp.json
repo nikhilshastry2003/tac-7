@@ -6,7 +6,7 @@
         "@playwright/mcp@latest",
         "--isolated",
         "--config",
-        "./playwright-mcp-config.json"
+        "/c/Users/NAVEEN/Desktop/Intern_kit/.repo/TAC/tac-7/trees/0390a27b/playwright-mcp-config.json"
       ]
     }
   }
