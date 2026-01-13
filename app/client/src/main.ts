@@ -122,12 +122,17 @@ function initializeRandomQueryButton() {
 // File Upload Functionality
 function initializeFileUpload() {
   const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
+  const sampleDataSection = document.getElementById('sample-data-section') as HTMLDivElement;
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const browseButton = document.getElementById('browse-button') as HTMLButtonElement;
-  
+
+  // Store original text for both sections
+  let dropZoneOriginalText = '';
+  let sampleDataOriginalText = '';
+
   // Browse button click
   browseButton.addEventListener('click', () => fileInput.click());
-  
+
   // File input change
   fileInput.addEventListener('change', (e) => {
     const files = (e.target as HTMLInputElement).files;
@@ -135,21 +140,83 @@ function initializeFileUpload() {
       handleFileUpload(files[0]);
     }
   });
-  
-  // Drag and drop
+
+  // Drag and drop for drop-zone
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
+
+    // Update text to "Drop to create a table"
+    const textElement = dropZone.querySelector('p');
+    if (textElement && !dropZoneOriginalText) {
+      dropZoneOriginalText = textElement.textContent || '';
+    }
+    if (textElement) {
+      textElement.textContent = 'Drop to create a table';
+    }
   });
-  
+
   dropZone.addEventListener('dragleave', () => {
     dropZone.classList.remove('dragover');
+
+    // Restore original text
+    const textElement = dropZone.querySelector('p');
+    if (textElement && dropZoneOriginalText) {
+      textElement.textContent = dropZoneOriginalText;
+    }
   });
-  
+
   dropZone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    
+
+    // Restore original text
+    const textElement = dropZone.querySelector('p');
+    if (textElement && dropZoneOriginalText) {
+      textElement.textContent = dropZoneOriginalText;
+    }
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  });
+
+  // Drag and drop for sample-data-section
+  sampleDataSection.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    sampleDataSection.classList.add('dragover');
+
+    // Update text to "Drop to create a table"
+    const h3Element = sampleDataSection.querySelector('h3');
+    if (h3Element && !sampleDataOriginalText) {
+      sampleDataOriginalText = h3Element.textContent || '';
+    }
+    if (h3Element) {
+      h3Element.textContent = 'Drop to create a table';
+    }
+  });
+
+  sampleDataSection.addEventListener('dragleave', () => {
+    sampleDataSection.classList.remove('dragover');
+
+    // Restore original text
+    const h3Element = sampleDataSection.querySelector('h3');
+    if (h3Element && sampleDataOriginalText) {
+      h3Element.textContent = sampleDataOriginalText;
+    }
+  });
+
+  sampleDataSection.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    sampleDataSection.classList.remove('dragover');
+
+    // Restore original text
+    const h3Element = sampleDataSection.querySelector('h3');
+    if (h3Element && sampleDataOriginalText) {
+      h3Element.textContent = sampleDataOriginalText;
+    }
+
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
       handleFileUpload(files[0]);

@@ -468,6 +468,15 @@ h2 {
 /* Sample Data Section */
 .sample-data-section {
   margin-bottom: 2rem;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s;
+}
+
+.sample-data-section.dragover {
+  border-color: var(--primary-color);
+  background: rgba(102, 126, 234, 0.05);
 }
 
 .sample-data-section h3 {
