@@ -7,8 +7,16 @@ import json
 import re
 import logging
 import time
+import random
+import tempfile
 from typing import Optional, List, Dict, Any, Tuple, Final
 from dotenv import load_dotenv
+
+# Platform-specific imports for file locking
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 from .data_types import (
     AgentPromptRequest,
     AgentPromptResponse,
@@ -24,6 +32,88 @@ load_dotenv()
 
 # Get Claude Code CLI path from environment
 CLAUDE_PATH = os.getenv("CLAUDE_CODE_PATH", "claude")
+
+# Lock file for serializing Claude Code startup on Windows
+# This prevents CSPRNG initialization race conditions
+CLAUDE_STARTUP_LOCK_FILE = os.path.join(tempfile.gettempdir(), "claude_code_startup.lock")
+
+
+class ClaudeStartupLock:
+    """Context manager for serializing Claude Code startup on Windows.
+
+    This prevents the ncrypto::CSPRNG assertion error that occurs when
+    multiple Claude Code instances try to initialize simultaneously.
+    Uses a simple file-based mutex with longer delays to ensure proper spacing.
+    """
+
+    def __init__(self, timeout: float = 60.0):
+        self.timeout = timeout
+        self.lock_file = None
+        self.acquired = False
+        self.lock_path = CLAUDE_STARTUP_LOCK_FILE
+
+    def __enter__(self):
+        # Add initial random delay to stagger startup attempts (3-5 seconds)
+        initial_delay = random.uniform(3.0, 5.0)
+        time.sleep(initial_delay)
+
+        if sys.platform == "win32":
+            # Windows: Use a simple file existence check with retries
+            start_time = time.time()
+            while time.time() - start_time < self.timeout:
+                try:
+                    # Try to create lock file exclusively
+                    fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    os.write(fd, str(os.getpid()).encode())
+                    os.close(fd)
+                    self.acquired = True
+                    break
+                except FileExistsError:
+                    # Lock file exists, wait and retry
+                    time.sleep(random.uniform(1.0, 2.0))
+                except Exception:
+                    # Some other error, wait longer
+                    time.sleep(random.uniform(2.0, 4.0))
+
+            if not self.acquired:
+                # Timeout - force acquire by removing stale lock
+                try:
+                    os.remove(self.lock_path)
+                    fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    os.write(fd, str(os.getpid()).encode())
+                    os.close(fd)
+                    self.acquired = True
+                except Exception:
+                    pass
+
+            # Add substantial delay after acquiring lock for Windows crypto init
+            time.sleep(2.0)
+        else:
+            # Unix: Use flock
+            try:
+                self.lock_file = open(self.lock_path, "w")
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX)
+                self.acquired = True
+                time.sleep(0.5)
+            except Exception:
+                time.sleep(random.uniform(1.0, 2.0))
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if sys.platform == "win32":
+            if self.acquired:
+                try:
+                    os.remove(self.lock_path)
+                except Exception:
+                    pass
+        else:
+            if self.lock_file:
+                try:
+                    self.lock_file.close()
+                except Exception:
+                    pass
+        return False
 
 # Model selection mapping for slash commands
 # Maps each command to its model configuration for base and heavy model sets
@@ -168,7 +258,7 @@ def parse_jsonl_output(
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding="utf-8") as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
 
@@ -342,17 +432,21 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     env = get_claude_env()
 
     try:
-        # Open output file for streaming
-        with open(request.output_file, "w") as output_f:
-            # Execute Claude Code and stream output to file
-            result = subprocess.run(
-                cmd,
-                stdout=output_f,  # Stream directly to file
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-                cwd=request.working_dir,  # Use working_dir if provided
-            )
+        # Use startup lock to serialize Claude Code initialization on Windows
+        # This prevents ncrypto::CSPRNG assertion errors when multiple instances start
+        with ClaudeStartupLock():
+            # Open output file for streaming
+            with open(request.output_file, "w", encoding="utf-8") as output_f:
+                # Execute Claude Code and stream output to file
+                result = subprocess.run(
+                    cmd,
+                    stdout=output_f,  # Stream directly to file
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                    env=env,
+                    cwd=request.working_dir,  # Use working_dir if provided
+                )
 
         if result.returncode == 0:
 
@@ -398,7 +492,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
                 # Try to get the last few lines of output for context
                 try:
-                    with open(request.output_file, "r") as f:
+                    with open(request.output_file, "r", encoding="utf-8") as f:
                         lines = f.readlines()
                         if lines:
                             # Get last 5 lines or less
@@ -461,7 +555,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
                     # If no structured error found, get last line only
                     if not error_from_jsonl:
-                        with open(request.output_file, "r") as f:
+                        with open(request.output_file, "r", encoding="utf-8") as f:
                             lines = f.readlines()
                             if lines:
                                 # Just get the last line instead of entire file

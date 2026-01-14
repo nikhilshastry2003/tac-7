@@ -110,6 +110,15 @@ def classify_issue(
     """Classify GitHub issue and return appropriate slash command.
     Returns (command, error_message) tuple."""
 
+    # First, check if issue body starts with a slash command
+    # This allows direct classification without calling Claude Code
+    if issue.body:
+        body_stripped = issue.body.strip()
+        for cmd in ["/feature", "/bug", "/chore"]:
+            if body_stripped.startswith(cmd):
+                logger.info(f"Issue body starts with {cmd} - using direct classification")
+                return cmd, None
+
     # Use the classify_issue slash command template with minimal payload
     # Only include the essential fields: number, title, body
     minimal_issue_json = issue.model_dump_json(
@@ -221,6 +230,23 @@ def implement_plan(
     return implement_response
 
 
+def _generate_fallback_branch_name(
+    issue: GitHubIssue,
+    issue_type: str,
+    adw_id: str,
+) -> str:
+    """Generate a simple branch name without calling Claude Code.
+    Used as fallback when Claude Code subprocess fails."""
+    # Sanitize the title for use in branch name
+    title_words = issue.title.lower().split()[:5]  # Take first 5 words
+    sanitized_title = "-".join(
+        "".join(c for c in word if c.isalnum()) for word in title_words
+    )
+    # Limit length and create branch name
+    sanitized_title = sanitized_title[:40]  # Limit title part length
+    return f"{issue_type}/{adw_id[:8]}-{issue.number}-{sanitized_title}"
+
+
 def generate_branch_name(
     issue: GitHubIssue,
     issue_class: IssueClassSlashCommand,
@@ -247,11 +273,28 @@ def generate_branch_name(
     response = execute_template(request)
 
     if not response.success:
-        return None, response.output
+        # Fallback: generate branch name without Claude Code
+        logger.warning(f"Claude Code failed for branch name, using fallback: {response.output[:100]}")
+        branch_name = _generate_fallback_branch_name(issue, issue_type, adw_id)
+        logger.info(f"Generated fallback branch name: {branch_name}")
+        return branch_name, None
 
     branch_name = response.output.strip()
     logger.info(f"Generated branch name: {branch_name}")
     return branch_name, None
+
+
+def _generate_fallback_commit_message(
+    agent_name: str,
+    issue: GitHubIssue,
+    issue_type: str,
+) -> str:
+    """Generate a simple commit message without calling Claude Code."""
+    # Get first 50 chars of title
+    title = issue.title[:50].strip()
+    if len(issue.title) > 50:
+        title += "..."
+    return f"{issue_type}: {title} (#{issue.number})\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>"
 
 
 def create_commit(
@@ -286,7 +329,11 @@ def create_commit(
     response = execute_template(request)
 
     if not response.success:
-        return None, response.output
+        # Fallback: generate commit message without Claude Code
+        logger.warning(f"Claude Code failed for commit, using fallback: {response.output[:100]}")
+        commit_message = _generate_fallback_commit_message(agent_name, issue, issue_type)
+        logger.info(f"Created fallback commit message: {commit_message}")
+        return commit_message, None
 
     commit_message = response.output.strip()
     logger.info(f"Created commit message: {commit_message}")

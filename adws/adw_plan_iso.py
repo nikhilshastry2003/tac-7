@@ -205,17 +205,41 @@ def main():
             adw_id=adw_id,
             working_dir=worktree_path,  # Execute in worktree
         )
-        
+
         install_response = execute_template(install_request)
         if not install_response.success:
-            logger.error(f"Error setting up worktree: {install_response.output}")
-            make_issue_comment(
-                issue_number,
-                format_issue_message(adw_id, "ops", f"❌ Error setting up worktree: {install_response.output}"),
-            )
-            sys.exit(1)
-        
-        logger.info("Worktree environment setup complete")
+            logger.warning(f"Claude Code install_worktree failed, using fallback: {install_response.output[:100]}")
+            # Fallback: Run essential setup steps directly
+            import shutil
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            # Copy .env from parent if exists
+            parent_env = os.path.join(project_root, ".env")
+            worktree_env = os.path.join(worktree_path, ".env")
+            if os.path.exists(parent_env):
+                shutil.copy(parent_env, worktree_env)
+                # Append ports
+                with open(worktree_env, "a", encoding="utf-8") as f:
+                    f.write(f"\n# ADW Port Configuration\n")
+                    f.write(f"BACKEND_PORT={backend_port}\n")
+                    f.write(f"FRONTEND_PORT={frontend_port}\n")
+                    f.write(f"VITE_BACKEND_URL=http://localhost:{backend_port}\n")
+                logger.info(f"Copied and configured .env for worktree")
+
+            # Copy server .env
+            parent_server_env = os.path.join(project_root, "app", "server", ".env")
+            worktree_server_env = os.path.join(worktree_path, "app", "server", ".env")
+            if os.path.exists(parent_server_env):
+                os.makedirs(os.path.dirname(worktree_server_env), exist_ok=True)
+                shutil.copy(parent_server_env, worktree_server_env)
+                with open(worktree_server_env, "a", encoding="utf-8") as f:
+                    f.write(f"\n# ADW Port Configuration\n")
+                    f.write(f"BACKEND_PORT={backend_port}\n")
+                logger.info(f"Copied and configured server .env for worktree")
+
+            logger.info("Fallback worktree setup complete (skipped dependency install)")
+        else:
+            logger.info("Worktree environment setup complete")
 
     make_issue_comment(
         issue_number,

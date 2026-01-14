@@ -241,7 +241,7 @@ def merge_pr(
         ["--body", "Merged by ADW Ship workflow after successful validation."]
     )
 
-    result = subprocess.run(merge_cmd, capture_output=True, text=True)
+    result = subprocess.run(merge_cmd, capture_output=True, text=True, encoding="utf-8")
     if result.returncode != 0:
         return False, result.stderr
 

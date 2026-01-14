@@ -26,6 +26,7 @@ import os
 # Add the parent directory to Python path to import modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from adw_modules.workflow_ops import ensure_adw_id
+from adw_modules.utils import get_safe_subprocess_env
 
 
 def main():
@@ -60,6 +61,9 @@ def main():
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # Get safe environment for subprocess execution (includes Windows-specific vars)
+    safe_env = get_safe_subprocess_env()
+
     # Run isolated plan with the ADW ID
     plan_cmd = [
         "uv",
@@ -70,7 +74,7 @@ def main():
     ]
     print(f"\n=== ISOLATED PLAN PHASE ===")
     print(f"Running: {' '.join(plan_cmd)}")
-    plan = subprocess.run(plan_cmd)
+    plan = subprocess.run(plan_cmd, env=safe_env)
     if plan.returncode != 0:
         print("Isolated plan phase failed")
         sys.exit(1)
@@ -85,7 +89,7 @@ def main():
     ]
     print(f"\n=== ISOLATED BUILD PHASE ===")
     print(f"Running: {' '.join(build_cmd)}")
-    build = subprocess.run(build_cmd)
+    build = subprocess.run(build_cmd, env=safe_env)
     if build.returncode != 0:
         print("Isolated build phase failed")
         sys.exit(1)
@@ -102,7 +106,7 @@ def main():
     
     print(f"\n=== ISOLATED TEST PHASE ===")
     print(f"Running: {' '.join(test_cmd)}")
-    test = subprocess.run(test_cmd)
+    test = subprocess.run(test_cmd, env=safe_env)
     if test.returncode != 0:
         print("Isolated test phase failed")
         # Note: Continue anyway as some tests might be flaky
@@ -121,7 +125,7 @@ def main():
     
     print(f"\n=== ISOLATED REVIEW PHASE ===")
     print(f"Running: {' '.join(review_cmd)}")
-    review = subprocess.run(review_cmd)
+    review = subprocess.run(review_cmd, env=safe_env)
     if review.returncode != 0:
         print("Isolated review phase failed")
         sys.exit(1)
@@ -136,7 +140,7 @@ def main():
     ]
     print(f"\n=== ISOLATED DOCUMENTATION PHASE ===")
     print(f"Running: {' '.join(document_cmd)}")
-    document = subprocess.run(document_cmd)
+    document = subprocess.run(document_cmd, env=safe_env)
     if document.returncode != 0:
         print("Isolated documentation phase failed")
         sys.exit(1)

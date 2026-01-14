@@ -160,15 +160,19 @@ def parse_json(text: str, target_type: Type[T] = None) -> Union[T, Any]:
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
     """Check that all required environment variables are set.
-    
+
+    ANTHROPIC_API_KEY is optional when using Claude Code subscription.
+    Set it to "claude-code-subscription" or leave empty to use subscription auth.
+
     Args:
         logger: Optional logger instance for error reporting
-        
+
     Raises:
         SystemExit: If required environment variables are missing
     """
+    # Only CLAUDE_CODE_PATH is strictly required
+    # ANTHROPIC_API_KEY is optional when using Claude Code subscription
     required_vars = [
-        "ANTHROPIC_API_KEY",
         "CLAUDE_CODE_PATH",
     ]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -188,34 +192,47 @@ def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
 
 def get_safe_subprocess_env() -> Dict[str, str]:
     """Get filtered environment variables safe for subprocess execution.
-    
+
     Returns only the environment variables needed for ADW workflows based on
     .env.sample configuration. This prevents accidental exposure of sensitive
     credentials to subprocesses.
-    
+
+    When using Claude Code subscription (indicated by ANTHROPIC_API_KEY set to
+    "claude-code-subscription"), the API key is not passed to the subprocess,
+    allowing Claude Code to use its built-in authentication.
+
     Returns:
         Dictionary containing only required environment variables
     """
+    # Check if using Claude Code subscription authentication
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    use_subscription = (
+        anthropic_api_key is None or
+        anthropic_api_key.lower() in ("claude-code-subscription", "subscription", "")
+    )
+
     safe_env_vars = {
-        # Anthropic Configuration (required)
-        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-        
+        # Anthropic Configuration - only include if it's a real API key
+        # When using Claude Code subscription, don't pass any API key
+        # to let Claude Code use its built-in authentication
+        **({"ANTHROPIC_API_KEY": anthropic_api_key} if not use_subscription else {}),
+
         # GitHub Configuration (optional)
         # GITHUB_PAT is optional - if not set, will use default gh auth
         "GITHUB_PAT": os.getenv("GITHUB_PAT"),
-        
+
         # Claude Code Configuration
         "CLAUDE_CODE_PATH": os.getenv("CLAUDE_CODE_PATH", "claude"),
         "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": os.getenv(
             "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true"
         ),
-        
+
         # Agent Cloud Sandbox Environment (optional)
         "E2B_API_KEY": os.getenv("E2B_API_KEY"),
-        
+
         # Cloudflare tunnel token (optional)
         "CLOUDFLARED_TUNNEL_TOKEN": os.getenv("CLOUDFLARED_TUNNEL_TOKEN"),
-        
+
         # Essential system environment variables
         "HOME": os.getenv("HOME"),
         "USER": os.getenv("USER"),
@@ -224,19 +241,38 @@ def get_safe_subprocess_env() -> Dict[str, str]:
         "TERM": os.getenv("TERM"),
         "LANG": os.getenv("LANG"),
         "LC_ALL": os.getenv("LC_ALL"),
-        
+
         # Python-specific variables that subprocesses might need
         "PYTHONPATH": os.getenv("PYTHONPATH"),
         "PYTHONUNBUFFERED": "1",  # Useful for subprocess output
-        
+
         # Working directory tracking
         "PWD": os.getcwd(),
+
+        # Windows-specific environment variables (critical for Node.js crypto)
+        # These are needed for proper CSPRNG initialization on Windows
+        "USERPROFILE": os.getenv("USERPROFILE"),
+        "APPDATA": os.getenv("APPDATA"),
+        "LOCALAPPDATA": os.getenv("LOCALAPPDATA"),
+        "SYSTEMROOT": os.getenv("SYSTEMROOT"),
+        "SYSTEMDRIVE": os.getenv("SYSTEMDRIVE"),
+        "COMPUTERNAME": os.getenv("COMPUTERNAME"),
+        "TEMP": os.getenv("TEMP"),
+        "TMP": os.getenv("TMP"),
+        "WINDIR": os.getenv("WINDIR"),
+        "COMSPEC": os.getenv("COMSPEC"),
+        "USERNAME": os.getenv("USERNAME"),
+        "HOMEDRIVE": os.getenv("HOMEDRIVE"),
+        "HOMEPATH": os.getenv("HOMEPATH"),
+
+        # Node.js specific - helps prevent CSPRNG race conditions
+        "NODE_OPTIONS": os.getenv("NODE_OPTIONS", ""),
     }
-    
+
     # Add GH_TOKEN as alias for GITHUB_PAT if it exists
     github_pat = os.getenv("GITHUB_PAT")
     if github_pat:
         safe_env_vars["GH_TOKEN"] = github_pat
-    
+
     # Filter out None values
     return {k: v for k, v in safe_env_vars.items() if v is not None}

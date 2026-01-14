@@ -55,13 +55,13 @@ def create_worktree(adw_id: str, branch_name: str, logger: logging.Logger) -> Tu
     # Create the worktree using git, branching from origin/main
     # Use -b to create the branch as part of worktree creation
     cmd = ["git", "worktree", "add", "-b", branch_name, worktree_path, "origin/main"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
-    
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=project_root)
+
     if result.returncode != 0:
         # If branch already exists, try without -b
         if "already exists" in result.stderr:
             cmd = ["git", "worktree", "add", worktree_path, branch_name]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=project_root)
             
         if result.returncode != 0:
             error_msg = f"Failed to create worktree: {result.stderr}"
@@ -97,8 +97,10 @@ def validate_worktree(adw_id: str, state: ADWState) -> Tuple[bool, Optional[str]
         return False, f"Worktree directory not found: {worktree_path}"
     
     # Check git knows about it
-    result = subprocess.run(["git", "worktree", "list"], capture_output=True, text=True)
-    if worktree_path not in result.stdout:
+    result = subprocess.run(["git", "worktree", "list"], capture_output=True, text=True, encoding="utf-8")
+    # Normalize paths for comparison (git uses forward slashes on Windows)
+    normalized_worktree_path = worktree_path.replace("\\", "/")
+    if normalized_worktree_path not in result.stdout:
         return False, "Worktree not registered with git"
     
     return True, None
@@ -133,7 +135,7 @@ def remove_worktree(adw_id: str, logger: logging.Logger) -> Tuple[bool, Optional
     
     # First remove via git
     cmd = ["git", "worktree", "remove", worktree_path, "--force"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     
     if result.returncode != 0:
         # Try to clean up manually if git command failed
